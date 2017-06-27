@@ -27,6 +27,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+	"github.com/opentracing/opentracing-go/harness"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/uber/jaeger-lib/metrics"
@@ -368,4 +369,29 @@ func (p *dummyPropagator) Extract(carrier interface{}) (SpanContext, error) {
 		return emptyContext, nil
 	}
 	return emptyContext, opentracing.ErrSpanContextNotFound
+}
+
+func TestAPI(t *testing.T) {
+	apiSuite := harness.NewAPICheckSuite(
+		func() (opentracing.Tracer, func()) {
+			metricsFactory := metrics.NewLocalFactory(0)
+			metrics := NewMetrics(metricsFactory, nil)
+
+			tracer, closer := NewTracer("DOOP", // respect the classics, man!
+				NewConstSampler(true),
+				NewNullReporter(),
+				TracerOptions.Metrics(metrics),
+				TracerOptions.ZipkinSharedRPCSpan(true),
+			)
+
+			println("created tracer")
+
+			return tracer, func() { closer.Close() }
+		},
+		harness.APICheckCapabilities{
+			CheckBaggageValues: true,
+			CheckInject:        true,
+			CheckExtract:       true,
+		})
+	suite.Run(t, apiSuite)
 }
