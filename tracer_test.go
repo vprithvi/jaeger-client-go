@@ -384,14 +384,31 @@ func TestAPI(t *testing.T) {
 				TracerOptions.ZipkinSharedRPCSpan(true),
 			)
 
-			println("created tracer")
-
 			return tracer, func() { closer.Close() }
 		},
 		harness.APICheckCapabilities{
 			CheckBaggageValues: true,
 			CheckInject:        true,
 			CheckExtract:       true,
+		},
+		harness.UseProbe{
+			APICheckProbe: &jaegerProbe{},
 		})
 	suite.Run(t, apiSuite)
+}
+
+type jaegerProbe struct{}
+
+// SameTrace helps tests assert that this tracer's spans are from the same trace.
+func (jp *jaegerProbe) SameTrace(first, second opentracing.Span) bool {
+	firstCtx := first.Context().(SpanContext)
+	secondCtx := second.Context().(SpanContext)
+	return firstCtx.traceID == secondCtx.traceID
+}
+
+// SameSpanContext helps tests assert that a span and a context are from the same trace and span.
+func (jp *jaegerProbe) SameSpanContext(first opentracing.Span, second opentracing.SpanContext) bool {
+	firstCtx := first.Context().(SpanContext)
+	secondCtx := second.(SpanContext)
+	return firstCtx.traceID == secondCtx.traceID && firstCtx.spanID == secondCtx.spanID
 }
