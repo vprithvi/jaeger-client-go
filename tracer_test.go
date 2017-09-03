@@ -372,7 +372,8 @@ func (p *dummyPropagator) Extract(carrier interface{}) (SpanContext, error) {
 }
 
 func TestAPI(t *testing.T) {
-	apiSuite := harness.NewAPICheckSuite(
+	harness.RunAPIChecks(
+		t,
 		func() (opentracing.Tracer, func()) {
 			metricsFactory := metrics.NewLocalFactory(0)
 			metrics := NewMetrics(metricsFactory, nil)
@@ -386,15 +387,9 @@ func TestAPI(t *testing.T) {
 
 			return tracer, func() { closer.Close() }
 		},
-		harness.APICheckCapabilities{
-			CheckBaggageValues: true,
-			CheckInject:        true,
-			CheckExtract:       true,
-		},
-		harness.UseProbe{
-			APICheckProbe: &jaegerProbe{},
-		})
-	suite.Run(t, apiSuite)
+		harness.CheckEverything(),
+		harness.UseProbe(&jaegerProbe{}),
+	)
 }
 
 type jaegerProbe struct{}
