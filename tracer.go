@@ -299,6 +299,13 @@ func (t *Tracer) startSpanWithOptions(
 					ctx.baggage[k] = v
 				}
 			}
+
+			// copy root span context
+			if parent.firstInProcessContext == nil {
+				ctx.firstInProcessContext = &parent
+			} else {
+				ctx.firstInProcessContext = parent.firstInProcessContext
+			}
 		}
 	}
 

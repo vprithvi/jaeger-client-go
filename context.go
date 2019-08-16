@@ -66,6 +66,10 @@ type SpanContext struct {
 	//
 	// See JaegerDebugHeader in constants.go
 	debugID string
+
+	// This refers to the span context of the first span context in this process. Nil if it doesn't exist
+	// This is not propagated over the wire
+	firstInProcessContext *SpanContext
 }
 
 // ForeachBaggageItem implements ForeachBaggageItem() of opentracing.SpanContext
@@ -80,12 +84,21 @@ func (c SpanContext) ForeachBaggageItem(handler func(k, v string) bool) {
 // IsSampled returns whether this trace was chosen for permanent storage
 // by the sampling mechanism of the tracer.
 func (c SpanContext) IsSampled() bool {
-	return (c.flags & flagSampled) == flagSampled
+	// TODO: handle the cases where modification to flags happen in children span only
+	isSampled := (c.flags & flagSampled) == flagSampled
+	if c.firstInProcessContext == nil {
+		return isSampled
+	}
+	return isSampled || c.firstInProcessContext.IsSampled()
 }
 
 // IsDebug indicates whether sampling was explicitly requested by the service.
 func (c SpanContext) IsDebug() bool {
-	return (c.flags & flagDebug) == flagDebug
+	isDebug := (c.flags & flagDebug) == flagDebug
+	if c.firstInProcessContext == nil {
+		return isDebug
+	}
+	return isDebug || c.firstInProcessContext.IsDebug()
 }
 
 // IsValid indicates whether this context actually represents a valid trace.
@@ -187,7 +200,7 @@ func (c SpanContext) WithBaggageItem(key, value string) SpanContext {
 		newBaggage[key] = value
 	}
 	// Use positional parameters so the compiler will help catch new fields.
-	return SpanContext{c.traceID, c.spanID, c.parentID, c.flags, newBaggage, ""}
+	return SpanContext{c.traceID, c.spanID, c.parentID, c.flags, newBaggage, "", c.firstInProcessContext}
 }
 
 // isDebugIDContainerOnly returns true when the instance of the context is only

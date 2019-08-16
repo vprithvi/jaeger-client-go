@@ -308,12 +308,19 @@ func setSamplingPriority(s *Span, value interface{}) bool {
 	}
 	s.Lock()
 	defer s.Unlock()
+	ctx := s.context.firstInProcessContext
+	if ctx == nil {
+		ctx = &s.context
+	}
+
 	if val == 0 {
-		s.context.flags = s.context.flags & (^flagSampled)
+		ctx.flags = ctx.flags & (^flagSampled)
+		s.context.flags = ctx.flags
 		return true
 	}
 	if s.tracer.isDebugAllowed(s.operationName) {
-		s.context.flags = s.context.flags | flagDebug | flagSampled
+		ctx.flags = ctx.flags | flagDebug | flagSampled
+		s.context.flags = ctx.flags
 		return true
 	}
 	return false

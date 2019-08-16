@@ -72,6 +72,7 @@ func TestSpanPropagator(t *testing.T) {
 	spans := make([]*Span, len(otSpans))
 	for i, s := range otSpans {
 		spans[i] = s.(*Span)
+		spans[i].context.firstInProcessContext = nil // This is not propagated by Inject/Extract
 	}
 
 	closer.Close()
